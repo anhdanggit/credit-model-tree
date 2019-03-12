@@ -1,10 +1,9 @@
+# Credit Scoring: Logistic + Tree-based Algorithms
+
 ---
 title: 'Credit Scoring: Logistic + Tree-based Algorithms'
 author: "Anh Dang"
 date: "10 March 2019"
-output:
-  pdf_document: default
-  html_document: default
 ---
 
 By the data set from **Give Me Some Credit** (2012) <https://www.kaggle.com/c/GiveMeSomeCredit>, which contains 150,000 observations with 11 features, this work is to illustrate some useful techniques in Credit Scoring Modelling, namely:
