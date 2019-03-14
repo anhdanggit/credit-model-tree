@@ -3,11 +3,11 @@ title: 'Credit Scoring: Logistic + Tree-based Algorithms'
 author: "Anh Dang"
 date: "10 March 2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
-By the data set from **Give Me Some Credit** (2012) <https://www.kaggle.com/c/GiveMeSomeCredit>, which contains 150,000 observations with 11 features. The nature of data set is unbalance, with only 7% of bad rate. According to this extreme unbalanced data, some other algorithms might be favoured (such as gradient boosting), yet this work is to use it to illustrate some useful techniques in Credit Scoring Modeling, namely:
+By the data set from **Give Me Some Credit** (2012) <https://www.kaggle.com/c/GiveMeSomeCredit>, which contains 150,000 observations with 11 features, this work is to illustrate some useful techniques in Credit Scoring Modelling, namely:
 
 1. Data Preparation and Exploration at Univariate Level with rank plots for continuous variables, and the Information Value Analysis to do variable transformation and selection
 2. Multivariate Analysis with several feature engineering along the analytics 
@@ -24,12 +24,12 @@ The purpose of this work is to briefly overview some practical and handy techniq
 * Data Exploration and Preparation would be mentioned
 * `Logistic Regression` is covered as this is one of the most conventional approach in Credit Scoring
 * However, the limitation of Logit is its dependencies in lineary and monotone relationship, and not efficient in capturining the non-linearity and interaction among features. This is a big limitation, especially in Credit Scoring for SMEs where we would expect the pattern is more varied, non-linear, and less straighforward than that of bigger companies
-* In that sense, tree-based alogrithms might be good ideas as it conducts the classification taking into account the interactions, non-linearity and working well with categorical variables. The visual presentation of decision trees is easy to communicate, and could play the role as a framework for rule-based credit risk models. We would walk-through the `Recursive Partitioning` and `Chi-squared Automatic Detection (CHAID)`.
+* In that sense, tree-based alogrithms might be good ideas as it conducts the classification taking into account the interactions, non-linearity and working well with categorical variables. The visual presentation of decision trees is easy to commcate, and could play the role as a framework for rule-based credit risk models. We would walk-through the `Recursive Partitioning` and `Chi-squared Automatic Detection (CHAID)`.
 * As a hybrid approach, we discuss about `Model-Based Recursive Partitioning (MOB)` based on Logit model, to combine the advantages of both trees and logit regression. This method is also potential to be applied for segmentation in Risk modelling, and to validating the stability of model parameters among different subsets of population. 
 
 
 
-```{r setup, include=FALSE}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(dplyr)
@@ -40,50 +40,28 @@ library(DT)
 library(mltools)
 library(ape)
 library(caret)
-library(fcRiskr)
 library(ROCR)
 library(DMwR)
 library(rpart)
 library(ggplot2)
-library(RColorBrewer)
-library(rattle)
-library(vcd)
-library(partykit)
-library(CHAID) # install.packages("CHAID", repos="http://R-Forge.R-project.org")
-source("./Handy_functions/summary_handy.R")
-source("./Handy_functions/rank_plot.R")
-source("./Handy_functions/var_treat.R")
-source("./Handy_functions/gb_integer_cat.R")
-source("./Handy_functions/split_sample.R")
-
-```
-```{r lib, eval=F}
-library(readr)
-library(dplyr)
-library(knitr)
-library(kableExtra)
-library(magrittr)
-library(DT)
-library(mltools)
-library(ape)
-library(caret)
-library(fcRiskr)
-library(ROCR)
-library(DMwR)
-library(rpart)
-library(ggplot2)
+library(ggthemes)
 library(RColorBrewer)
 library(rattle)
 library(vcd)
 library(party)
 library(partykit)
+library(plotROC)
+library(CHAID)
+
 source("./Handy_functions/summary_handy.R")
 source("./Handy_functions/rank_plot.R")
 source("./Handy_functions/var_treat.R")
 source("./Handy_functions/gb_integer_cat.R")
 source("./Handy_functions/split_sample.R")
+source("./Handy_functions/univariate_cont_plot.R")
 
 ```
+
 
 
 ## 1. Data Set
@@ -141,20 +119,20 @@ For numeric variables, we conduct the rank plots to compare the association betw
 
 ### 2.1. Continuous Variables 
 
-```{r RevolvingUtilizationOfUnsecuredLines, echo=FALSE}
-rank.plots(train_set %>% 
-             select(RevolvingUtilizationOfUnsecuredLines),
-          train_set$SeriousDlqin2yrs)
+```{r RevolvingUtilizationOfUnsecuredLines, fig.width=15, fig.height=10}
+univariate_cont_plot(x = train_set$RevolvingUtilizationOfUnsecuredLines, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'RevolvingUtilizationOfUnsecuredLines')
 ```
-```{r MonthlyIncome, echo=FALSE}
-rank.plots(train_set %>% 
-             select(MonthlyIncome),
-          train_set$SeriousDlqin2yrs)
+```{r MonthlyIncome, fig.width=15, fig.height=10}
+univariate_cont_plot(x = train_set$MonthlyIncome, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'MonthlyIncome')
 ```
-```{r DebtRatio, echo=F}
-rank.plots(train_set %>% 
-             select(DebtRatio),
-          train_set$SeriousDlqin2yrs, smooth = F)
+```{r DebtRatio, fig.width=15, fig.height=10}
+univariate_cont_plot(x = train_set$DebtRatio, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'DebtRatio')
 ```
 
 #### Variable Treatments
@@ -165,11 +143,11 @@ train_set %<>%
   mutate(DebtRatio = ifelse(DebtRatio > 4, 4, DebtRatio))
 
 ```
-```{r DebtRatio_plot, echo=F}
+```{r DebtRatio_plot, echo=F, fig.width=15, fig.height=10}
 # check the rank.plots again
-rank.plots(train_set %>% 
-             select(DebtRatio),
-          train_set$SeriousDlqin2yrs, smooth = T)
+univariate_cont_plot(x = train_set$DebtRatio, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'DebtRatio')
 
 ```
 ### 2.2. Discrete Variables
@@ -382,17 +360,17 @@ train_set %<>%
          income_debt = MonthlyIncome*DebtRatio)
 ```
 
-```{r rankplot_income_util, echo=F}
-rank.plots(train_set %>% 
-             select(income_util),
-          train_set$SeriousDlqin2yrs)
+```{r rankplot_income_util, echo=F, fig.width=15, fig.height=10}
+univariate_cont_plot(x = train_set$income_util, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'income_util')
 ```
 
 
-```{r rankplot_income_debt, echo=F}
-rank.plots(train_set %>% 
-             select(income_debt),
-          train_set$SeriousDlqin2yrs)
+```{r rankplot_income_debt, echo=F, fig.width=15, fig.height=10}
+univariate_cont_plot(x = train_set$income_debt, 
+                     y = train_set$SeriousDlqin2yrs,
+                     varname = 'income_debt')
 ```
 
 ## 3. Multivariate Analysis
@@ -426,7 +404,7 @@ train_set %<>%
          -income_debt)
 
 ```
-## 3. Model Devlopment
+## 3. Model Development
 
 Use the built function to split the `train_set` by 60:40:
 
@@ -884,7 +862,7 @@ ctrl.alpha <- CHAID::chaid_control(alpha2 = 0.05, alpha4 = 0.05, maxheight = 3)
 model4 <- CHAID::chaid(SeriousDlqin2yrs ~ ., data = train_chaid, control = ctrl.alpha)
 
 ```
-```{r chaid_graph, fig.height=18, fig.width=20}
+```{r chaid_graph, fig.height=15, fig.width=20}
 chaid_graph(model4, title = 'Model 4b: CHAID with alpha2 = 0.05 and alpha4 = 0.05')
 
 ```
@@ -916,8 +894,7 @@ Different algorithms in this work are compared by ROC and Gini. However, please 
 The performance of methods heavily depends on the status of data and the purpose of modellers. 
 
 ### 4.1. ROC Curve
-
-```{r roc_curve, fig.width=20, fig.height=20}
+```{r roc_curve, fig.width=10, fig.height=8}
 plot(m1_perf, col='blue', lty=1, main='ROCs: Model Performance Comparision') # logistic regression
 plot(m1b_perf, col='gold',lty=2, add=TRUE); # Logit selected var
 plot(m1c_perf, col='dark orange',lty=3, add=TRUE); # Logit + SMOTE
@@ -925,7 +902,7 @@ plot(m2_perf, col='green',add=TRUE,lty=4); # tree
 plot(m2b_perf, col='dark gray',add=TRUE,lty=5); # Tree SMOTE
 plot(m3_perf, col='dark green',add=TRUE,lty=6); # MOB
 plot(m3b_perf, col='dark red',add=TRUE,lty=6); # MOB (logit score)
-plot(m4_perf, col='black',add=TRUE,lty=6); # CHAID Tuned
+plot(m4_perf, col='black',add=TRUE,lty=6, size = 1); # CHAID Tuned
 plot(m4b_perf, col='yellow',add=TRUE,lty=6); # CHAID Arbitrate
     legend(0.6,0.5,
            c('Model 1 :Logistic regression', 
@@ -988,7 +965,8 @@ kable(model_performance_metric, caption ="Comparision of Model Performances") %>
 ```
 ## 5. References
 
-1. *Statistics Solutions*, CHAID: Non-parametric Analysis, <https://www.statisticssolutions.com/non-parametric-analysis-chaid/)> 
+1. *Statistics Solutions*, CHAID: Non-parametric Analysis, 
+<https://www.statisticssolutions.com/non-parametric-analysis-chaid/)> 
 2. *Chuck Powell* CHAID and CARET: A Good Combo (June 6, 2018) <https://www.r-bloggers.com/chaid-and-caret-a-good-combo-june-6-2018/>
 3. *Ariful Mondal* Classifications in R: Response Modeling/Credit Scoring/Credit Rating using Machine Learning Techniques <https://rstudio-pubs-static.s3.amazonaws.com/225209_df0130c5a0614790b6365676b9372c07.html#32_recursive_partitioning_for_classification> 
 4. *Zeileis, Hothorn, & Hornik 2006* party with the mob: Model-Based Recursive Partitioning in R <https://cran.r-project.org/web/packages/party/vignettes/MOB.pdf>
